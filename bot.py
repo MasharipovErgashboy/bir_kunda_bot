@@ -1,11 +1,15 @@
 import os
 import json
 import asyncio
+from dotenv import load_dotenv  # <-- bu qatorda qo‘shildi
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.types import FSInputFile, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-BOT_TOKEN = "8079459948:AAHkwlSfKZ8Sl4RIrlYkEvRGzVJnaWp6Gn4"
+# ======================= .env faylini yuklash =======================
+load_dotenv()
+BOT_TOKEN = os.getenv("BOT_TOKEN")  # Bot token endi .env fayldan olinadi
+
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
