@@ -1,18 +1,20 @@
+import os
 import qrcode
 
-bot_username = "BirKundaBirSuhbatBot"
+# Bot username-ni string ichida yozing
+BOT_USERNAME = "BirKundaBirSuhbatBot"
+BASE_URL = f"https://t.me/{BOT_USERNAME}?start="
 
-uz_topics = ["salomlashish", "tanishtirish"]
-jp_topics = ["aisatsu", "jikoshoukai"]
+AUDIO_DIR = "./audios/uz/"  # yoki "./audios/jp/"
+QR_OUTPUT_DIR = "./qr_codes/"
+os.makedirs(QR_OUTPUT_DIR, exist_ok=True)
 
-for topic in uz_topics:
-    url = f"https://t.me/{bot_username}?start=uz_{topic}"
-    img = qrcode.make(url)
-    img.save(f"qr_codes/uz_{topic}.png")
+audios = sorted(os.listdir(AUDIO_DIR))
 
-for topic in jp_topics:
-    url = f"https://t.me/{bot_username}?start=jp_{topic}"
-    img = qrcode.make(url)
-    img.save(f"qr_codes/jp_{topic}.png")
+for idx, audio in enumerate(audios, start=1):
+    param = f"audio{idx}"
+    full_url = BASE_URL + param
 
-print("✅ QR kodlar yaratildi!")
+    img = qrcode.make(full_url)
+    img.save(os.path.join(QR_OUTPUT_DIR, f"{idx}.png"))
+    print(f"{idx}.png yaratildi -> {full_url}")

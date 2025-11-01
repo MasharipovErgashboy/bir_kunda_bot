@@ -1,14 +1,14 @@
 import os
 import json
 import asyncio
-from dotenv import load_dotenv  # <-- bu qatorda qo‘shildi
+from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, F, types
-from aiogram.filters import Command
+from aiogram.filters import CommandStart
 from aiogram.types import FSInputFile, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 # ======================= .env faylini yuklash =======================
 load_dotenv()
-BOT_TOKEN = os.getenv("BOT_TOKEN")  # Bot token endi .env fayldan olinadi
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -71,19 +71,51 @@ def get_audio_keyboard(audios, page=0, lang="uz"):
     if nav_buttons:
         kb_buttons.append(nav_buttons)
     
-    # Har doim mavjud Orqaga button
     kb_buttons.append([KeyboardButton(text="🔙 Orqaga") if lang=="uz" else KeyboardButton(text="🔙 戻る")])
     return ReplyKeyboardMarkup(keyboard=kb_buttons, resize_keyboard=True)
 
 # ======================= HANDLERS =======================
 
-@dp.message(Command("start"))
-async def start_handler(message: types.Message):
+# /start va /start audioX parametri bilan ishlash
+@dp.message(CommandStart())
+async def start_handler(message: types.Message, command: CommandStart):
+    args = command.args  # /start dan keyingi parametr (masalan, audio5)
+    user_data = load_user_data()
+    user_id = str(message.from_user.id)
+    
+    if user_id not in user_data:
+        user_data[user_id] = {"lang": "uz", "last_audio_page": 0}
+
+    lang = user_data[user_id]["lang"]
+
+    # QR kod orqali kirish: /start audioX
+    if args and args.startswith("audio"):
+        try:
+            audio_num = int(args.replace("audio",""))
+            audio_dir = AUDIO_DIR[lang]
+            audios = sorted(os.listdir(audio_dir))
+            if 0 < audio_num <= len(audios):
+                audio_path = os.path.join(audio_dir, audios[audio_num - 1])
+                await message.answer_audio(FSInputFile(audio_path), caption=audios[audio_num - 1])
+                await message.answer("Davom etish uchun menyudan tanlang:", reply_markup=main_menu_keyboard(lang))
+                save_user_data(user_data)
+                return
+            else:
+                await message.answer("Audio topilmadi.")
+                return
+        except Exception as e:
+            print("QR xato:", e)
+            await message.answer("QR kod noto‘g‘ri yoki buzilgan.")
+            return
+
+    # Oddiy /start
     await message.answer(
         "Xush kelibsiz! Millatingizni tanlang / ようこそ！国籍を選んでください:",
         reply_markup=get_language_keyboard()
     )
+    save_user_data(user_data)
 
+# Til tanlash
 @dp.message(F.text.in_(["🇺🇿 UZ", "🇯🇵 JP"]))
 async def lang_handler(message: types.Message):
     lang = "uz" if message.text == "🇺🇿 UZ" else "jp"
@@ -95,12 +127,13 @@ async def lang_handler(message: types.Message):
     text = "Asosiy menyu:" if lang=="uz" else "メインメニュー:"
     await message.answer(text, reply_markup=main_menu_keyboard(lang))
 
+# Bosh menyu va audio navigation
 @dp.message()
 async def main_menu_handler(message: types.Message):
     user_data = load_user_data()
     user_id = str(message.from_user.id)
     if user_id not in user_data:
-        await start_handler(message)
+        await start_handler(message, command=CommandStart())
         return
     lang = user_data[user_id]["lang"]
     text = message.text
@@ -153,7 +186,7 @@ async def main_menu_handler(message: types.Message):
         book_text = (
             "📖 'Bir kunda bir suhbat' kitobi:\n"
             "- Kitobda 25 ta mavzu orqali kundalik suhbatlar mavjud.\n"
-            "- Kitob harid qilishingiz mumkin quyidagi tugma orqali."
+            "- Kitobni quyidagi tugma orqali xarid qilishingiz mumkin."
         ) if lang=="uz" else (
             "📖「一日一会話」:\n"
             "- 25のテーマを通して日常会話を学べます。\n"
@@ -166,16 +199,8 @@ async def main_menu_handler(message: types.Message):
         return
 
     # Audio navigation
-    user_id = str(message.from_user.id)
-    if user_id not in user_data:
-        await start_handler(message)
-        return
-    lang = user_data[user_id]["lang"]
-    audio_dir = AUDIO_DIR[lang]
-    audios = sorted(os.listdir(audio_dir))
     page = user_data[user_id].get("last_audio_page",0)
 
-    # Orqaga va oldinga
     if text in ["⬅️ Orqaga","⬅️ 前へ"]:
         page = max(page - 1, 0)
     elif text in ["➡️ Keyingi","➡️ 次へ"]:
