@@ -23,3 +23,4 @@ tzdata==2025.2
 Unidecode==1.4.0
 uritemplate==4.2.0
 wheel==0.45.1
+python-dotenv==1.2.1
