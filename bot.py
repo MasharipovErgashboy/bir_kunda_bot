@@ -254,7 +254,7 @@ async def check_subscription(callback: types.CallbackQuery):
         msg = "✅ Rahmat! Siz kanalga obuna bo‘ldingiz." if lang=="uz" else "✅ 登録ありがとうございます！"
         await callback.message.edit_text(msg)
     else:
-        alert = "Siz hali Telegram kanalga obuna bo‘lmagansiz ❌" if lang=="uz" else "❌ まだチャンネルに登録していません。"
+        alert = "Siz hali Telegram va Instagram kanalga obuna bo‘lmagansiz ❌" if lang=="uz" else "❌ まだチャンネルに登録していません。"
         await callback.answer(alert, show_alert=True)
 
 # ======================= Main =======================
