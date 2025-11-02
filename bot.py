@@ -6,6 +6,11 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart
 from aiogram.types import FSInputFile, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
+# ======================= Admin va yordamchi fayllar =======================
+from admin_handlers import admin_router  # admin handlerlar
+from utils import load_user_data, save_user_data, is_admin, USER_DATA_FILE
+from keyboards import admin_main_menu, back_button
+
 # ======================= .env yuklash =======================
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -16,21 +21,9 @@ dp = Dispatcher()
 CHANNEL_USERNAME = "@su_academya"
 INSTAGRAM_URL = "https://www.instagram.com/su_akademya/"
 AUDIO_DIR = {"uz": "./audios/uz/", "jp": "./audios/jp/"}
-USER_DATA_FILE = "user_data.json"
 PAGE_SIZE = 5
 BOOK_IMAGE = "./images/photo_2025-02-01_20-52-03.jpg"
 BOT_IMAGE = "./images/bot.jpg"
-
-# ======================= Foydalanuvchi ma'lumotlari =======================
-def load_user_data():
-    if not os.path.exists(USER_DATA_FILE):
-        return {}
-    with open(USER_DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_user_data(data):
-    with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
 
 # ======================= Klaviaturalar =======================
 def get_language_keyboard():
@@ -66,7 +59,6 @@ def get_audio_keyboard(audios, page=0, lang="uz"):
     kb_buttons.append([KeyboardButton(text="🔙 Orqaga" if lang=="uz" else "🔙 戻る")])
     return ReplyKeyboardMarkup(keyboard=kb_buttons, resize_keyboard=True)
 
-# ✅ Instagram bilan birga obuna klaviaturasi
 def get_subscription_keyboard(lang="uz"):
     if lang == "uz":
         return InlineKeyboardMarkup(inline_keyboard=[
@@ -104,7 +96,7 @@ async def start_handler(message: types.Message, command: CommandStart):
     if user_id not in user_data:
         user_data[user_id] = {"lang": "uz", "last_audio_page": 0}
 
-    # === QR orqali audio ochish ===
+    # QR orqali audio ochish
     if "_" in args and "audio" in args:
         try:
             lang, audio_str = args.split("_")
@@ -117,21 +109,15 @@ async def start_handler(message: types.Message, command: CommandStart):
                 audio_path = os.path.join(audio_dir, audios[audio_index])
                 await message.answer("🎧 Audio dars yuklanmoqda..." if lang=="uz" else "🎧 オーディオレッスンを読み込み中...")
                 await message.answer_audio(FSInputFile(audio_path), caption=audios[audio_index])
-                await message.answer(
-                    "Xush kelibsiz! Millatingizni tanlang / ようこそ！国籍を選んでください:",
-                    reply_markup=get_language_keyboard()
-                )
+                await message.answer("Xush kelibsiz! Millatingizni tanlang / ようこそ！国籍を選んでください:", reply_markup=get_language_keyboard())
                 user_data[user_id]["lang"] = lang
                 save_user_data(user_data)
                 return
         except Exception as e:
             print("QR audio xatosi:", e)
 
-    # === Oddiy start ===
-    await message.answer(
-        "Xush kelibsiz! Millatingizni tanlang / ようこそ！国籍を選んでください:",
-        reply_markup=get_language_keyboard()
-    )
+    # Oddiy start
+    await message.answer("Xush kelibsiz! Millatingizni tanlang / ようこそ！国籍を選んでください:", reply_markup=get_language_keyboard())
 
 # ======================= Til tanlash =======================
 @dp.message(F.text.in_(["🇺🇿 UZ", "🇯🇵 JP"]))
@@ -143,9 +129,10 @@ async def lang_handler(message: types.Message):
     save_user_data(user_data)
     await message.answer("Asosiy menyu:" if lang=="uz" else "メインメニュー:", reply_markup=main_menu_keyboard(lang))
 
-# ======================= Asosiy menyu handler =======================
+# ======================= Asosiy menyu =======================
 @dp.message()
 async def main_menu_handler(message: types.Message):
+    from admin_handlers import admin_router  # Adminni ham shu yerda ishlatamiz
     user_data = load_user_data()
     user_id = str(message.from_user.id)
     if user_id not in user_data:
@@ -158,7 +145,7 @@ async def main_menu_handler(message: types.Message):
     audios = sorted(os.listdir(audio_dir))
     page = user_data[user_id].get("last_audio_page", 0)
 
-    # === Audio darslar ===
+    # Audio darslar
     if text in ["🎧 Audio darslar", "🎧 オーディオレッスン"]:
         subscribed = await is_user_subscribed(user_id)
         if not subscribed:
@@ -167,39 +154,27 @@ async def main_menu_handler(message: types.Message):
             return
         user_data[user_id]["last_audio_page"] = 0
         save_user_data(user_data)
-        await message.answer(
-            "Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:",
-            reply_markup=get_audio_keyboard(audios, 0, lang)
-        )
+        await message.answer("Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:", reply_markup=get_audio_keyboard(audios, 0, lang))
         return
 
-    # === Sahifalash ===
+    # Sahifalash va audio tanlash
     if text in ["➡️ Keyingi", "➡️ 次へ"]:
         page += 1
-        max_page = (len(audios)-1) // PAGE_SIZE
-        if page > max_page:
-            page = max_page
+        max_page = (len(audios)-1)//PAGE_SIZE
+        if page > max_page: page = max_page
         user_data[user_id]["last_audio_page"] = page
         save_user_data(user_data)
-        await message.answer(
-            "Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:",
-            reply_markup=get_audio_keyboard(audios, page, lang)
-        )
+        await message.answer("Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:", reply_markup=get_audio_keyboard(audios, page, lang))
         return
 
     if text in ["⬅️ Orqaga", "⬅️ 前へ"]:
         page -= 1
-        if page < 0:
-            page = 0
+        if page < 0: page = 0
         user_data[user_id]["last_audio_page"] = page
         save_user_data(user_data)
-        await message.answer(
-            "Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:",
-            reply_markup=get_audio_keyboard(audios, page, lang)
-        )
+        await message.answer("Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:", reply_markup=get_audio_keyboard(audios, page, lang))
         return
 
-    # === Audio tanlash ===
     if text.strip().split()[0].isdigit() and "-" in text:
         subscribed = await is_user_subscribed(user_id)
         if not subscribed:
@@ -212,24 +187,24 @@ async def main_menu_handler(message: types.Message):
             await message.answer_audio(FSInputFile(audio_path), caption=audios[idx])
         return
 
-    # === Kitob haqida ===
+    # Kitob haqida
     if text in ["📚 Kitob haqida", "📚 本について"]:
         caption = (
             "📘 Kitob nomi: Bir kunda bir suhbat – Yapon tilida o‘rganing\n\n"
             "Janr: Til o‘rganish, Amaliy qo‘llanma\n\n"
             "Bu kitob kundalik hayotda ishlatiladigan yapon tilidagi suhbatlarni o‘rganish uchun mo‘ljallangan."
-            if lang == "uz" else
+            if lang=="uz" else
             "📘 本名: 一日一会話 – 日本語を学ぶ\n\nジャンル: 言語学習、実用ガイド\n\n"
             "この本は、日常生活で使用される日本語の会話を学ぶために作られています。"
         )
         await message.answer_photo(photo=FSInputFile(BOOK_IMAGE), caption=caption, reply_markup=get_buy_button(lang))
         return
 
-    # === Bot haqida ===
+    # Bot haqida
     if text in ["🤖 Bot haqida", "🤖 ボットについて"]:
         caption = (
             "🤖 Bu bot 'Bir kunda bir suhbat' kitobiga asoslangan. Audio darslar orqali yapon tilini o‘rganing!"
-            if lang == "uz" else
+            if lang=="uz" else
             "🤖 このボットは「一日一会話」という本に基づいています。オーディオレッスンで日本語を学びましょう！"
         )
         await message.answer_photo(photo=FSInputFile(BOT_IMAGE), caption=caption)
@@ -256,6 +231,9 @@ async def check_subscription(callback: types.CallbackQuery):
     else:
         alert = "Siz hali Telegram va Instagram kanalga obuna bo‘lmagansiz ❌" if lang=="uz" else "❌ まだチャンネルに登録していません。"
         await callback.answer(alert, show_alert=True)
+
+# ======================= Admin routerni ulash =======================
+dp.include_router(admin_router)
 
 # ======================= Main =======================
 async def main():
