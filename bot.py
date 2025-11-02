@@ -113,6 +113,13 @@ async def start_handler(message: types.Message, command: CommandStart):
                 audio_path = os.path.join(audio_dir, audios[audio_index])
                 await message.answer("🎧 Audio dars yuklanmoqda..." if lang=="uz" else "🎧 オーディオレッスンを読み込み中...")
                 await message.answer_audio(FSInputFile(audio_path), caption=audios[audio_index])
+                
+                # === Audio ochilgandan keyin til tanlashni chiqarish ===
+                await message.answer(
+                    "Xush kelibsiz! Millatingizni tanlang / ようこそ！国籍を選んでください:",
+                    reply_markup=get_language_keyboard()
+                )
+                
                 user_data[user_id]["lang"] = lang
                 save_user_data(user_data)
                 return
