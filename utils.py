@@ -16,7 +16,7 @@ def save_user_data(data):
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 # Faqat admin foydalanuvchilar ro'yxati
-ADMINS = [123456789, 987654321]  # Bu yerga sizning Telegram IDlaringizni qo'shing
+ADMINS = [1473923989]  # Bu yerga sizning Telegram IDlaringizni qo'shing
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMINS
