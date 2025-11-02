@@ -6,7 +6,7 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart
 from aiogram.types import FSInputFile, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-# ======================= .env =======================
+# ======================= .env yuklash =======================
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=BOT_TOKEN)
@@ -20,7 +20,7 @@ PAGE_SIZE = 5
 BOOK_IMAGE = "./images/photo_2025-02-01_20-52-03.jpg"
 BOT_IMAGE = "./images/photo_2025-02-01_20-52-03.jpg"
 
-# ======================= JSON boshqaruvi =======================
+# ======================= Foydalanuvchi ma'lumotlari =======================
 def load_user_data():
     if not os.path.exists(USER_DATA_FILE):
         return {}
@@ -34,10 +34,7 @@ def save_user_data(data):
 # ======================= Klaviaturalar =======================
 def get_language_keyboard():
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="🇺🇿 UZ")],
-            [KeyboardButton(text="🇯🇵 JP")]
-        ],
+        keyboard=[[KeyboardButton(text="🇺🇿 UZ"), KeyboardButton(text="🇯🇵 JP")]],
         resize_keyboard=True
     )
 
@@ -57,10 +54,8 @@ def main_menu_keyboard(lang="uz"):
 def get_audio_keyboard(audios, page=0, lang="uz"):
     start = page * PAGE_SIZE
     end = start + PAGE_SIZE
-    kb_buttons = [
-        [KeyboardButton(text=f"{idx+1} - {audio_name}")]
-        for idx, audio_name in enumerate(audios[start:end], start=start)
-    ]
+    kb_buttons = [[KeyboardButton(text=f"{idx+1} - {audio_name}")]
+                  for idx, audio_name in enumerate(audios[start:end], start=start)]
     nav_buttons = []
     if page > 0:
         nav_buttons.append(KeyboardButton(text="⬅️ Orqaga" if lang=="uz" else "⬅️ 前へ"))
@@ -82,7 +77,7 @@ def get_buy_button(lang="uz"):
     text = "📖 Kitobni xarid qilish" if lang=="uz" else "📖 本を購入する"
     return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, url=url)]])
 
-# ======================= Kanal obunasini tekshirish =======================
+# ======================= Obuna tekshirish =======================
 async def is_user_subscribed(user_id: int) -> bool:
     try:
         member = await bot.get_chat_member(chat_id=CHANNEL_USERNAME, user_id=user_id)
@@ -97,34 +92,33 @@ async def start_handler(message: types.Message, command: CommandStart):
     user_data = load_user_data()
     user_id = str(message.from_user.id)
 
+    # Foydalanuvchi uchun ma'lumotlar
     if user_id not in user_data:
-        user_data[user_id] = {"lang": None, "last_audio_page": 0, "pending_audio": None}
+        user_data[user_id] = {"lang": "uz", "last_audio_page": 0, "pending_audio": None}
 
-    # QR kod orqali kelgan audio argumentini saqlaymiz
+    # QR kod orqali kelgan audio bo‘lsa
     if args.lower().startswith("audio"):
         try:
             audio_index = int(args[5:]) - 1
             user_data[user_id]["pending_audio"] = audio_index
-        except:
-            user_data[user_id]["pending_audio"] = None
-    save_user_data(user_data)
+            save_user_data(user_data)
 
-    lang = user_data[user_id]["lang"]
-
-    # Agar foydalanuvchi tilda tanlov qilgan bo‘lsa — audio darhol ochilsin
-    if lang:
-        pending_audio = user_data[user_id].get("pending_audio")
-        if pending_audio is not None:
+            # Foydalanuvchining tili bo‘lmasa, "uz" bo‘lsin
+            lang = user_data[user_id].get("lang", "uz")
             audio_dir = AUDIO_DIR[lang]
             audios = sorted(os.listdir(audio_dir))
-            if 0 <= pending_audio < len(audios):
-                audio_path = os.path.join(audio_dir, audios[pending_audio])
-                await message.answer_audio(FSInputFile(audio_path), caption=audios[pending_audio])
-            user_data[user_id]["pending_audio"] = None
-            save_user_data(user_data)
-            return
 
-    # Agar tili hali tanlanmagan bo‘lsa — avval til tanlansin
+            if 0 <= audio_index < len(audios):
+                audio_path = os.path.join(audio_dir, audios[audio_index])
+                await message.answer("🎧 Sizga tegishli audio dars yuklanmoqda...")
+                await message.answer_audio(FSInputFile(audio_path), caption=audios[audio_index])
+                user_data[user_id]["pending_audio"] = None
+                save_user_data(user_data)
+                return
+        except Exception as e:
+            print("QR audio xatosi:", e)
+
+    # Oddiy start
     await message.answer(
         "Xush kelibsiz! Millatingizni tanlang / ようこそ！国籍を選んでください:",
         reply_markup=get_language_keyboard()
@@ -136,31 +130,18 @@ async def lang_handler(message: types.Message):
     lang = "uz" if message.text == "🇺🇿 UZ" else "jp"
     user_data = load_user_data()
     user_id = str(message.from_user.id)
+
     user_data[user_id]["lang"] = lang
     save_user_data(user_data)
 
-    await message.answer(
-        "Asosiy menyu:" if lang=="uz" else "メインメニュー:",
-        reply_markup=main_menu_keyboard(lang)
-    )
-
-    # Agar QR kod orqali audio keldi — tildan keyin avtomatik ochiladi
-    pending_audio = user_data[user_id].get("pending_audio")
-    if pending_audio is not None:
-        audio_dir = AUDIO_DIR[lang]
-        audios = sorted(os.listdir(audio_dir))
-        if 0 <= pending_audio < len(audios):
-            audio_path = os.path.join(audio_dir, audios[pending_audio])
-            await message.answer_audio(FSInputFile(audio_path), caption=audios[pending_audio])
-        user_data[user_id]["pending_audio"] = None
-        save_user_data(user_data)
+    await message.answer("Asosiy menyu:" if lang=="uz" else "メインメニュー:", reply_markup=main_menu_keyboard(lang))
 
 # ======================= Asosiy menyu =======================
 @dp.message()
 async def main_menu_handler(message: types.Message):
     user_data = load_user_data()
     user_id = str(message.from_user.id)
-    if user_id not in user_data or not user_data[user_id].get("lang"):
+    if user_id not in user_data:
         await start_handler(message, command=CommandStart())
         return
 
@@ -176,14 +157,11 @@ async def main_menu_handler(message: types.Message):
         if not subscribed:
             await message.answer("📢 Iltimos, avval kanalga obuna bo‘ling:", reply_markup=get_subscription_keyboard())
             return
-        if not audios:
-            await message.answer("Audio mavjud emas / オーディオがありません。")
-            return
         user_data[user_id]["last_audio_page"] = 0
         save_user_data(user_data)
         await message.answer(
             "Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:",
-            reply_markup=get_audio_keyboard(audios, page=0, lang=lang)
+            reply_markup=get_audio_keyboard(audios, 0, lang)
         )
         return
 
@@ -196,7 +174,7 @@ async def main_menu_handler(message: types.Message):
         save_user_data(user_data)
         await message.answer(
             "Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:",
-            reply_markup=get_audio_keyboard(audios, page=page, lang=lang)
+            reply_markup=get_audio_keyboard(audios, page, lang)
         )
         return
 
@@ -207,7 +185,7 @@ async def main_menu_handler(message: types.Message):
         save_user_data(user_data)
         await message.answer(
             "Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:",
-            reply_markup=get_audio_keyboard(audios, page=page, lang=lang)
+            reply_markup=get_audio_keyboard(audios, page, lang)
         )
         return
 
@@ -228,11 +206,10 @@ async def main_menu_handler(message: types.Message):
         caption = (
             "📘 Kitob nomi: Bir kunda bir suhbat – Yapon tilida o‘rganing\n\n"
             "Janr: Til o‘rganish, Amaliy qo‘llanma\n\n"
-            "Bu kitob kundalik hayotda ishlatiladigan yapon tilidagi suhbatlarni o‘rganish uchun mo‘ljallangan. "
-            "25 ta asosiy mavzuni qamrab oladi va o‘quvchiga amaliy suhbat ko‘nikmalarini beradi."
+            "Bu kitob kundalik hayotda ishlatiladigan yapon tilidagi suhbatlarni o‘rganish uchun mo‘ljallangan."
             if lang == "uz" else
             "📘 本名: 一日一会話 – 日本語を学ぶ\n\nジャンル: 言語学習、実用ガイド\n\n"
-            "この本は、日常生活で使用される日本語の会話を学ぶために作られています。25の主要なテーマをカバーします。"
+            "この本は、日常生活で使用される日本語の会話を学ぶために作られています。"
         )
         await message.answer_photo(photo=FSInputFile(BOOK_IMAGE), caption=caption, reply_markup=get_buy_button(lang))
         return
@@ -247,27 +224,26 @@ async def main_menu_handler(message: types.Message):
         await message.answer_photo(photo=FSInputFile(BOT_IMAGE), caption=caption)
         return
 
-    # === Bosh sahifa ===
+    # === Orqaga va Bosh sahifa ===
     if text in ["🏠 Bosh sahifa", "🏠 ホーム"]:
         await message.answer("Millatingizni tanlang / 国籍を選んでください:", reply_markup=get_language_keyboard())
         return
 
-    # === Orqaga ===
     if text in ["🔙 Orqaga", "🔙 戻る"]:
         await message.answer("Asosiy menyu:" if lang=="uz" else "メインメニュー:", reply_markup=main_menu_keyboard(lang))
         return
 
-# ======================= Callbacklar =======================
+# ======================= Callback =======================
 @dp.callback_query(F.data == "check_subscription")
 async def check_subscription(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     subscribed = await is_user_subscribed(user_id)
     if subscribed:
-        await callback.message.edit_text("✅ Rahmat! Siz kanalga obuna bo‘lgansiz.")
+        await callback.message.edit_text("✅ Rahmat! Siz kanalga obuna bo‘ldingiz.")
     else:
         await callback.answer("Siz hali obuna bo‘lmagansiz ❌", show_alert=True)
 
-# ======================= MAIN =======================
+# ======================= Main =======================
 async def main():
     print("✅ Bot ishga tushdi...")
     await dp.start_polling(bot)
