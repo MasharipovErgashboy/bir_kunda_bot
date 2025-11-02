@@ -72,13 +72,13 @@ def get_subscription_keyboard(lang="uz"):
         return InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📢 Telegram kanalga o‘tish", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
             [InlineKeyboardButton(text="📸 Instagram sahifamiz", url=INSTAGRAM_URL)],
-            [InlineKeyboardButton(text="✅ Obuna bo‘ldim", callback_data="instagram_done")]
+            [InlineKeyboardButton(text="✅ Obuna bo‘ldim", callback_data="check_subscription")]
         ])
     else:
         return InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📢 Telegramチャンネルへ", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
             [InlineKeyboardButton(text="📸 Instagramページ", url=INSTAGRAM_URL)],
-            [InlineKeyboardButton(text="✅ 登録しました", callback_data="instagram_done")]
+            [InlineKeyboardButton(text="✅ 登録しました", callback_data="check_subscription")]
         ])
 
 def get_buy_button(lang="uz"):
@@ -102,8 +102,7 @@ async def start_handler(message: types.Message, command: CommandStart):
     user_id = str(message.from_user.id)
 
     if user_id not in user_data:
-        user_data[user_id] = {"lang": "uz", "last_audio_page": 0, "instagram_done": False}
-        save_user_data(user_data)
+        user_data[user_id] = {"lang": "uz", "last_audio_page": 0}
 
     # === QR orqali audio ochish ===
     if "_" in args and "audio" in args:
@@ -158,23 +157,20 @@ async def main_menu_handler(message: types.Message):
     audio_dir = AUDIO_DIR[lang]
     audios = sorted(os.listdir(audio_dir))
     page = user_data[user_id].get("last_audio_page", 0)
-    instagram_done = user_data[user_id].get("instagram_done", False)
 
     # === Audio darslar ===
     if text in ["🎧 Audio darslar", "🎧 オーディオレッスン"]:
-        subscribed = await is_user_subscribed(int(user_id))
+        subscribed = await is_user_subscribed(user_id)
         if not subscribed:
-            msg = "❌ Siz hali Telegram kanalga obuna bo‘lmagansiz." if lang=="uz" else "❌ まだチャンネルに登録していません。"
+            msg = "📢 Iltimos, avval kanalga va Instagram sahifamizga obuna bo‘ling:" if lang=="uz" else "📢 まずチャンネルとInstagramページに登録してください："
             await message.answer(msg, reply_markup=get_subscription_keyboard(lang))
             return
-        if not instagram_done:
-            msg = "❌ Siz Instagram sahifasiga obuna bo‘lmagansiz. Iltimos obuna bo‘lib qaytib keling." if lang=="uz" else "❌ まだInstagramに登録していません。登録して戻ってきてください。"
-            await message.answer(msg, reply_markup=get_subscription_keyboard(lang))
-            return
-
         user_data[user_id]["last_audio_page"] = 0
         save_user_data(user_data)
-        await message.answer("Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:", reply_markup=get_audio_keyboard(audios, 0, lang))
+        await message.answer(
+            "Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:",
+            reply_markup=get_audio_keyboard(audios, 0, lang)
+        )
         return
 
     # === Sahifalash ===
@@ -185,7 +181,10 @@ async def main_menu_handler(message: types.Message):
             page = max_page
         user_data[user_id]["last_audio_page"] = page
         save_user_data(user_data)
-        await message.answer("Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:", reply_markup=get_audio_keyboard(audios, page, lang))
+        await message.answer(
+            "Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:",
+            reply_markup=get_audio_keyboard(audios, page, lang)
+        )
         return
 
     if text in ["⬅️ Orqaga", "⬅️ 前へ"]:
@@ -194,14 +193,17 @@ async def main_menu_handler(message: types.Message):
             page = 0
         user_data[user_id]["last_audio_page"] = page
         save_user_data(user_data)
-        await message.answer("Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:", reply_markup=get_audio_keyboard(audios, page, lang))
+        await message.answer(
+            "Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:",
+            reply_markup=get_audio_keyboard(audios, page, lang)
+        )
         return
 
     # === Audio tanlash ===
     if text.strip().split()[0].isdigit() and "-" in text:
-        subscribed = await is_user_subscribed(int(user_id))
-        if not subscribed or not instagram_done:
-            msg = "❌ Iltimos, avval kanal va Instagram sahifamizga obuna bo‘ling." if lang=="uz" else "❌ まずチャンネルとInstagramに登録してください。"
+        subscribed = await is_user_subscribed(user_id)
+        if not subscribed:
+            msg = "📢 Iltimos, avval kanalga va Instagram sahifamizga obuna bo‘ling:" if lang=="uz" else "📢 まずチャンネルとInstagramページに登録してください："
             await message.answer(msg, reply_markup=get_subscription_keyboard(lang))
             return
         idx = int(text.split("-")[0].strip()) - 1
@@ -241,17 +243,19 @@ async def main_menu_handler(message: types.Message):
         await message.answer("Asosiy menyu:" if lang=="uz" else "メインメニュー:", reply_markup=main_menu_keyboard(lang))
         return
 
-# ======================= Instagram callback =======================
-@dp.callback_query(F.data == "instagram_done")
-async def instagram_done_callback(callback: types.CallbackQuery):
-    user_id = str(callback.from_user.id)
+# ======================= Callback =======================
+@dp.callback_query(F.data == "check_subscription")
+async def check_subscription(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
     user_data = load_user_data()
-    if user_id not in user_data:
-        user_data[user_id] = {"lang": "uz", "last_audio_page": 0, "instagram_done": True}
+    lang = user_data.get(str(user_id), {}).get("lang", "uz")
+    subscribed = await is_user_subscribed(user_id)
+    if subscribed:
+        msg = "✅ Rahmat! Siz kanalga obuna bo‘ldingiz." if lang=="uz" else "✅ 登録ありがとうございます！"
+        await callback.message.edit_text(msg)
     else:
-        user_data[user_id]["instagram_done"] = True
-    save_user_data(user_data)
-    await callback.message.edit_text("✅ Instagram obunasi tasdiqlandi! Endi audio darslarni tanlashingiz mumkin.")
+        alert = "Siz hali Telegram kanalga obuna bo‘lmagansiz ❌" if lang=="uz" else "❌ まだチャンネルに登録していません。"
+        await callback.answer(alert, show_alert=True)
 
 # ======================= Main =======================
 async def main():
