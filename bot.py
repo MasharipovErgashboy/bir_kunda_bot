@@ -18,7 +18,7 @@ AUDIO_DIR = {"uz": "./audios/uz/", "jp": "./audios/jp/"}
 USER_DATA_FILE = "user_data.json"
 PAGE_SIZE = 5
 BOOK_IMAGE = "./images/photo_2025-02-01_20-52-03.jpg"
-BOT_IMAGE = "./images/photo_2025-02-01_20-52-03.jpg"
+BOT_IMAGE = "./images/bot.jpg"
 
 # ======================= Foydalanuvchi ma'lumotlari =======================
 def load_user_data():
