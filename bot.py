@@ -54,8 +54,7 @@ def main_menu_keyboard(lang="uz"):
 def get_audio_keyboard(audios, page=0, lang="uz"):
     start = page * PAGE_SIZE
     end = start + PAGE_SIZE
-    kb_buttons = [[KeyboardButton(text=f"{idx+1} - {audio_name}")]
-                  for idx, audio_name in enumerate(audios[start:end], start=start)]
+    kb_buttons = [[KeyboardButton(text=f"{idx+1} - {audio_name}")] for idx, audio_name in enumerate(audios[start:end], start=start)]
     nav_buttons = []
     if page > 0:
         nav_buttons.append(KeyboardButton(text="⬅️ Orqaga" if lang=="uz" else "⬅️ 前へ"))
@@ -66,11 +65,17 @@ def get_audio_keyboard(audios, page=0, lang="uz"):
     kb_buttons.append([KeyboardButton(text="🔙 Orqaga" if lang=="uz" else "🔙 戻る")])
     return ReplyKeyboardMarkup(keyboard=kb_buttons, resize_keyboard=True)
 
-def get_subscription_keyboard():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📢 Kanalga o‘tish", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
-        [InlineKeyboardButton(text="✅ Obuna bo‘ldim", callback_data="check_subscription")]
-    ])
+def get_subscription_keyboard(lang="uz"):
+    if lang == "uz":
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📢 Kanalga o‘tish", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+            [InlineKeyboardButton(text="✅ Obuna bo‘ldim", callback_data="check_subscription")]
+        ])
+    else:
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📢 チャンネルに移動", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+            [InlineKeyboardButton(text="✅ 登録しました", callback_data="check_subscription")]
+        ])
 
 def get_buy_button(lang="uz"):
     url = "https://asaxiy.uz/uz/product/ergashboy-masharipov-bir-kunda-bir-suhbat-yapon-tilida-urganing"
@@ -96,15 +101,12 @@ async def start_handler(message: types.Message, command: CommandStart):
         user_data[user_id] = {"lang": "uz", "last_audio_page": 0}
 
     # === QR orqali audio ochish ===
-    # Format: uz_audio1 yoki jp_audio3
     if "_" in args and "audio" in args:
         try:
             lang, audio_str = args.split("_")
             audio_index = int(audio_str.replace("audio", "")) - 1
-
             if lang not in AUDIO_DIR:
                 lang = "uz"
-
             audio_dir = AUDIO_DIR[lang]
             audios = sorted(os.listdir(audio_dir))
             if 0 <= audio_index < len(audios):
@@ -152,7 +154,8 @@ async def main_menu_handler(message: types.Message):
     if text in ["🎧 Audio darslar", "🎧 オーディオレッスン"]:
         subscribed = await is_user_subscribed(user_id)
         if not subscribed:
-            await message.answer("📢 Iltimos, avval kanalga obuna bo‘ling:", reply_markup=get_subscription_keyboard())
+            msg = "📢 Iltimos, avval kanalga obuna bo‘ling:" if lang=="uz" else "📢 まずチャンネルに登録してください："
+            await message.answer(msg, reply_markup=get_subscription_keyboard(lang))
             return
         user_data[user_id]["last_audio_page"] = 0
         save_user_data(user_data)
@@ -166,7 +169,8 @@ async def main_menu_handler(message: types.Message):
     if text in ["➡️ Keyingi", "➡️ 次へ"]:
         page += 1
         max_page = (len(audios)-1) // PAGE_SIZE
-        if page > max_page: page = max_page
+        if page > max_page:
+            page = max_page
         user_data[user_id]["last_audio_page"] = page
         save_user_data(user_data)
         await message.answer(
@@ -177,7 +181,8 @@ async def main_menu_handler(message: types.Message):
 
     if text in ["⬅️ Orqaga", "⬅️ 前へ"]:
         page -= 1
-        if page < 0: page = 0
+        if page < 0:
+            page = 0
         user_data[user_id]["last_audio_page"] = page
         save_user_data(user_data)
         await message.answer(
@@ -190,7 +195,8 @@ async def main_menu_handler(message: types.Message):
     if text.strip().split()[0].isdigit() and "-" in text:
         subscribed = await is_user_subscribed(user_id)
         if not subscribed:
-            await message.answer("📢 Iltimos, avval kanalga obuna bo‘ling:", reply_markup=get_subscription_keyboard())
+            msg = "📢 Iltimos, avval kanalga obuna bo‘ling:" if lang=="uz" else "📢 まずチャンネルに登録してください："
+            await message.answer(msg, reply_markup=get_subscription_keyboard(lang))
             return
         idx = int(text.split("-")[0].strip()) - 1
         if 0 <= idx < len(audios):
@@ -233,11 +239,15 @@ async def main_menu_handler(message: types.Message):
 @dp.callback_query(F.data == "check_subscription")
 async def check_subscription(callback: types.CallbackQuery):
     user_id = callback.from_user.id
+    user_data = load_user_data()
+    lang = user_data.get(str(user_id), {}).get("lang", "uz")
     subscribed = await is_user_subscribed(user_id)
     if subscribed:
-        await callback.message.edit_text("✅ Rahmat! Siz kanalga obuna bo‘ldingiz.")
+        msg = "✅ Rahmat! Siz kanalga obuna bo‘ldingiz." if lang=="uz" else "✅ 登録ありがとうございます！"
+        await callback.message.edit_text(msg)
     else:
-        await callback.answer("Siz hali obuna bo‘lmagansiz ❌", show_alert=True)
+        alert = "Siz hali obuna bo‘lmagansiz ❌" if lang=="uz" else "❌ まだチャンネルに登録していません。"
+        await callback.answer(alert, show_alert=True)
 
 # ======================= Main =======================
 async def main():
