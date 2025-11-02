@@ -16,7 +16,7 @@ dp = Dispatcher()
 CHANNEL_USERNAME = "@su_academya"
 AUDIO_DIR = {"uz": "./audios/uz/", "jp": "./audios/jp/"}
 USER_DATA_FILE = "user_data.json"
-PAGE_SIZE = 5  # audio sahifa hajmi
+PAGE_SIZE = 5
 BOOK_IMAGE = "./images/photo_2025-02-01_20-52-03.jpg"
 BOT_IMAGE = "./images/photo_2025-02-01_20-52-03.jpg"
 
@@ -100,16 +100,31 @@ async def start_handler(message: types.Message, command: CommandStart):
     if user_id not in user_data:
         user_data[user_id] = {"lang": None, "last_audio_page": 0, "pending_audio": None}
 
-    # QR kod orqali kelgan audio
+    # QR kod orqali kelgan audio argumentini saqlaymiz
     if args.lower().startswith("audio"):
         try:
             audio_index = int(args[5:]) - 1
             user_data[user_id]["pending_audio"] = audio_index
         except:
             user_data[user_id]["pending_audio"] = None
-
     save_user_data(user_data)
 
+    lang = user_data[user_id]["lang"]
+
+    # Agar foydalanuvchi tilda tanlov qilgan bo‘lsa — audio darhol ochilsin
+    if lang:
+        pending_audio = user_data[user_id].get("pending_audio")
+        if pending_audio is not None:
+            audio_dir = AUDIO_DIR[lang]
+            audios = sorted(os.listdir(audio_dir))
+            if 0 <= pending_audio < len(audios):
+                audio_path = os.path.join(audio_dir, audios[pending_audio])
+                await message.answer_audio(FSInputFile(audio_path), caption=audios[pending_audio])
+            user_data[user_id]["pending_audio"] = None
+            save_user_data(user_data)
+            return
+
+    # Agar tili hali tanlanmagan bo‘lsa — avval til tanlansin
     await message.answer(
         "Xush kelibsiz! Millatingizni tanlang / ようこそ！国籍を選んでください:",
         reply_markup=get_language_keyboard()
@@ -121,13 +136,15 @@ async def lang_handler(message: types.Message):
     lang = "uz" if message.text == "🇺🇿 UZ" else "jp"
     user_data = load_user_data()
     user_id = str(message.from_user.id)
-
     user_data[user_id]["lang"] = lang
     save_user_data(user_data)
 
-    await message.answer("Asosiy menyu:" if lang=="uz" else "メインメニュー:", reply_markup=main_menu_keyboard(lang))
+    await message.answer(
+        "Asosiy menyu:" if lang=="uz" else "メインメニュー:",
+        reply_markup=main_menu_keyboard(lang)
+    )
 
-    # QR koddan kelgan audio avtomatik ochiladi
+    # Agar QR kod orqali audio keldi — tildan keyin avtomatik ochiladi
     pending_audio = user_data[user_id].get("pending_audio")
     if pending_audio is not None:
         audio_dir = AUDIO_DIR[lang]
@@ -194,7 +211,7 @@ async def main_menu_handler(message: types.Message):
         )
         return
 
-    # === Audio tanlash (faqat foydalanuvchi bosganda) ===
+    # === Audio tanlash ===
     if text.strip().split()[0].isdigit() and "-" in text:
         subscribed = await is_user_subscribed(user_id)
         if not subscribed:
@@ -230,11 +247,12 @@ async def main_menu_handler(message: types.Message):
         await message.answer_photo(photo=FSInputFile(BOT_IMAGE), caption=caption)
         return
 
-    # === Orqaga va Bosh sahifa ===
+    # === Bosh sahifa ===
     if text in ["🏠 Bosh sahifa", "🏠 ホーム"]:
         await message.answer("Millatingizni tanlang / 国籍を選んでください:", reply_markup=get_language_keyboard())
         return
 
+    # === Orqaga ===
     if text in ["🔙 Orqaga", "🔙 戻る"]:
         await message.answer("Asosiy menyu:" if lang=="uz" else "メインメニュー:", reply_markup=main_menu_keyboard(lang))
         return
