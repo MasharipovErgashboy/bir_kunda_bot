@@ -14,6 +14,7 @@ dp = Dispatcher()
 
 # ======================= Sozlamalar =======================
 CHANNEL_USERNAME = "@su_academya"
+INSTAGRAM_URL = "https://www.instagram.com/su_akademya/"
 AUDIO_DIR = {"uz": "./audios/uz/", "jp": "./audios/jp/"}
 USER_DATA_FILE = "user_data.json"
 PAGE_SIZE = 5
@@ -65,15 +66,18 @@ def get_audio_keyboard(audios, page=0, lang="uz"):
     kb_buttons.append([KeyboardButton(text="🔙 Orqaga" if lang=="uz" else "🔙 戻る")])
     return ReplyKeyboardMarkup(keyboard=kb_buttons, resize_keyboard=True)
 
+# ✅ Instagram bilan birga obuna klaviaturasi
 def get_subscription_keyboard(lang="uz"):
     if lang == "uz":
         return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📢 Kanalga o‘tish", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+            [InlineKeyboardButton(text="📢 Telegram kanalga o‘tish", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+            [InlineKeyboardButton(text="📸 Instagram sahifamiz", url=INSTAGRAM_URL)],
             [InlineKeyboardButton(text="✅ Obuna bo‘ldim", callback_data="check_subscription")]
         ])
     else:
         return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📢 チャンネルに移動", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+            [InlineKeyboardButton(text="📢 Telegramチャンネルへ", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+            [InlineKeyboardButton(text="📸 Instagramページ", url=INSTAGRAM_URL)],
             [InlineKeyboardButton(text="✅ 登録しました", callback_data="check_subscription")]
         ])
 
@@ -113,13 +117,10 @@ async def start_handler(message: types.Message, command: CommandStart):
                 audio_path = os.path.join(audio_dir, audios[audio_index])
                 await message.answer("🎧 Audio dars yuklanmoqda..." if lang=="uz" else "🎧 オーディオレッスンを読み込み中...")
                 await message.answer_audio(FSInputFile(audio_path), caption=audios[audio_index])
-                
-                # === Audio ochilgandan keyin til tanlashni chiqarish ===
                 await message.answer(
                     "Xush kelibsiz! Millatingizni tanlang / ようこそ！国籍を選んでください:",
                     reply_markup=get_language_keyboard()
                 )
-                
                 user_data[user_id]["lang"] = lang
                 save_user_data(user_data)
                 return
@@ -161,7 +162,7 @@ async def main_menu_handler(message: types.Message):
     if text in ["🎧 Audio darslar", "🎧 オーディオレッスン"]:
         subscribed = await is_user_subscribed(user_id)
         if not subscribed:
-            msg = "📢 Iltimos, avval kanalga obuna bo‘ling:" if lang=="uz" else "📢 まずチャンネルに登録してください："
+            msg = "📢 Iltimos, avval kanalga va Instagram sahifamizga obuna bo‘ling:" if lang=="uz" else "📢 まずチャンネルとInstagramページに登録してください："
             await message.answer(msg, reply_markup=get_subscription_keyboard(lang))
             return
         user_data[user_id]["last_audio_page"] = 0
@@ -202,7 +203,7 @@ async def main_menu_handler(message: types.Message):
     if text.strip().split()[0].isdigit() and "-" in text:
         subscribed = await is_user_subscribed(user_id)
         if not subscribed:
-            msg = "📢 Iltimos, avval kanalga obuna bo‘ling:" if lang=="uz" else "📢 まずチャンネルに登録してください："
+            msg = "📢 Iltimos, avval kanalga va Instagram sahifamizga obuna bo‘ling:" if lang=="uz" else "📢 まずチャンネルとInstagramページに登録してください："
             await message.answer(msg, reply_markup=get_subscription_keyboard(lang))
             return
         idx = int(text.split("-")[0].strip()) - 1
@@ -253,7 +254,7 @@ async def check_subscription(callback: types.CallbackQuery):
         msg = "✅ Rahmat! Siz kanalga obuna bo‘ldingiz." if lang=="uz" else "✅ 登録ありがとうございます！"
         await callback.message.edit_text(msg)
     else:
-        alert = "Siz hali obuna bo‘lmagansiz ❌" if lang=="uz" else "❌ まだチャンネルに登録していません。"
+        alert = "Siz hali Telegram kanalga obuna bo‘lmagansiz ❌" if lang=="uz" else "❌ まだチャンネルに登録していません。"
         await callback.answer(alert, show_alert=True)
 
 # ======================= Main =======================
