@@ -17,6 +17,8 @@ CHANNEL_USERNAME = "@su_academya"
 AUDIO_DIR = {"uz": "./audios/uz/", "jp": "./audios/jp/"}
 USER_DATA_FILE = "user_data.json"
 PAGE_SIZE = 5  # audio sahifa hajmi
+BOOK_IMAGE = "./images/photo_2025-02-01_20-52-03.jpg"
+BOT_IMAGE = "./images/photo_2025-02-01_20-52-03.jpg"
 
 # ======================= JSON boshqaruvi =======================
 def load_user_data():
@@ -66,7 +68,7 @@ def get_audio_keyboard(audios, page=0, lang="uz"):
         nav_buttons.append(KeyboardButton(text="➡️ Keyingi" if lang=="uz" else "➡️ 次へ"))
     if nav_buttons:
         kb_buttons.append(nav_buttons)
-    kb_buttons.append([KeyboardButton(text="🔙 Orqaga") if lang=="uz" else KeyboardButton(text="🔙 戻る")])
+    kb_buttons.append([KeyboardButton(text="🔙 Orqaga" if lang=="uz" else "🔙 戻る")])
     return ReplyKeyboardMarkup(keyboard=kb_buttons, resize_keyboard=True)
 
 def get_subscription_keyboard():
@@ -74,6 +76,11 @@ def get_subscription_keyboard():
         [InlineKeyboardButton(text="📢 Kanalga o‘tish", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
         [InlineKeyboardButton(text="✅ Obuna bo‘ldim", callback_data="check_subscription")]
     ])
+
+def get_buy_button(lang="uz"):
+    url = "https://asaxiy.uz/uz/product/ergashboy-masharipov-bir-kunda-bir-suhbat-yapon-tilida-urganing"
+    text = "📖 Kitobni xarid qilish" if lang=="uz" else "📖 本を購入する"
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=text, url=url)]])
 
 # ======================= Kanal obunasini tekshirish =======================
 async def is_user_subscribed(user_id: int) -> bool:
@@ -93,7 +100,7 @@ async def start_handler(message: types.Message, command: CommandStart):
     if user_id not in user_data:
         user_data[user_id] = {"lang": None, "last_audio_page": 0, "pending_audio": None}
 
-    # QR koddan kelgan audio
+    # QR kod orqali kelgan audio
     if args.lower().startswith("audio"):
         try:
             audio_index = int(args[5:]) - 1
@@ -109,9 +116,9 @@ async def start_handler(message: types.Message, command: CommandStart):
     )
 
 # ======================= Til tanlash =======================
-@dp.message(F.text.in_(["🇺🇿 UZ","🇯🇵 JP"]))
+@dp.message(F.text.in_(["🇺🇿 UZ", "🇯🇵 JP"]))
 async def lang_handler(message: types.Message):
-    lang = "uz" if message.text=="🇺🇿 UZ" else "jp"
+    lang = "uz" if message.text == "🇺🇿 UZ" else "jp"
     user_data = load_user_data()
     user_id = str(message.from_user.id)
 
@@ -120,20 +127,14 @@ async def lang_handler(message: types.Message):
 
     await message.answer("Asosiy menyu:" if lang=="uz" else "メインメニュー:", reply_markup=main_menu_keyboard(lang))
 
-    # QR koddan kelgan audio avtomatik
+    # QR koddan kelgan audio avtomatik ochiladi
     pending_audio = user_data[user_id].get("pending_audio")
-    audio_dir = AUDIO_DIR[lang]
-    audios = sorted(os.listdir(audio_dir))
-    if pending_audio is not None and 0 <= pending_audio < len(audios):
-        page = pending_audio // PAGE_SIZE
-        user_data[user_id]["last_audio_page"] = page
-        save_user_data(user_data)
-        await message.answer(
-            "Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:",
-            reply_markup=get_audio_keyboard(audios, page=page, lang=lang)
-        )
-        audio_path = os.path.join(audio_dir, audios[pending_audio])
-        await message.answer_audio(FSInputFile(audio_path), caption=audios[pending_audio])
+    if pending_audio is not None:
+        audio_dir = AUDIO_DIR[lang]
+        audios = sorted(os.listdir(audio_dir))
+        if 0 <= pending_audio < len(audios):
+            audio_path = os.path.join(audio_dir, audios[pending_audio])
+            await message.answer_audio(FSInputFile(audio_path), caption=audios[pending_audio])
         user_data[user_id]["pending_audio"] = None
         save_user_data(user_data)
 
@@ -142,7 +143,7 @@ async def lang_handler(message: types.Message):
 async def main_menu_handler(message: types.Message):
     user_data = load_user_data()
     user_id = str(message.from_user.id)
-    if user_id not in user_data:
+    if user_id not in user_data or not user_data[user_id].get("lang"):
         await start_handler(message, command=CommandStart())
         return
 
@@ -152,8 +153,8 @@ async def main_menu_handler(message: types.Message):
     audios = sorted(os.listdir(audio_dir))
     page = user_data[user_id].get("last_audio_page", 0)
 
-    # Audio darslar
-    if text in ["🎧 Audio darslar","🎧 オーディオレッスン"]:
+    # === Audio darslar ===
+    if text in ["🎧 Audio darslar", "🎧 オーディオレッスン"]:
         subscribed = await is_user_subscribed(user_id)
         if not subscribed:
             await message.answer("📢 Iltimos, avval kanalga obuna bo‘ling:", reply_markup=get_subscription_keyboard())
@@ -161,16 +162,18 @@ async def main_menu_handler(message: types.Message):
         if not audios:
             await message.answer("Audio mavjud emas / オーディオがありません。")
             return
+        user_data[user_id]["last_audio_page"] = 0
+        save_user_data(user_data)
         await message.answer(
             "Audio darslarni tanlang:" if lang=="uz" else "オーディオレッスンを選択:",
-            reply_markup=get_audio_keyboard(audios, page=page, lang=lang)
+            reply_markup=get_audio_keyboard(audios, page=0, lang=lang)
         )
         return
 
-    # Sahifalash
-    if text in ["➡️ Keyingi","➡️ 次へ"]:
+    # === Sahifalash ===
+    if text in ["➡️ Keyingi", "➡️ 次へ"]:
         page += 1
-        max_page = (len(audios)-1)//PAGE_SIZE
+        max_page = (len(audios)-1) // PAGE_SIZE
         if page > max_page: page = max_page
         user_data[user_id]["last_audio_page"] = page
         save_user_data(user_data)
@@ -179,7 +182,8 @@ async def main_menu_handler(message: types.Message):
             reply_markup=get_audio_keyboard(audios, page=page, lang=lang)
         )
         return
-    if text in ["⬅️ Orqaga","⬅️ 前へ"]:
+
+    if text in ["⬅️ Orqaga", "⬅️ 前へ"]:
         page -= 1
         if page < 0: page = 0
         user_data[user_id]["last_audio_page"] = page
@@ -190,7 +194,7 @@ async def main_menu_handler(message: types.Message):
         )
         return
 
-    # Audio tanlash (faqat foydalanuvchi bosganda)
+    # === Audio tanlash (faqat foydalanuvchi bosganda) ===
     if text.strip().split()[0].isdigit() and "-" in text:
         subscribed = await is_user_subscribed(user_id)
         if not subscribed:
@@ -202,24 +206,41 @@ async def main_menu_handler(message: types.Message):
             await message.answer_audio(FSInputFile(audio_path), caption=audios[idx])
         return
 
-    # Kitob haqida
-    if text in ["📚 Kitob haqida","📚 本について"]:
-        await message.answer("Kitob haqida matn shu yerda…")
+    # === Kitob haqida ===
+    if text in ["📚 Kitob haqida", "📚 本について"]:
+        caption = (
+            "📘 Kitob nomi: Bir kunda bir suhbat – Yapon tilida o‘rganing\n\n"
+            "Janr: Til o‘rganish, Amaliy qo‘llanma\n\n"
+            "Bu kitob kundalik hayotda ishlatiladigan yapon tilidagi suhbatlarni o‘rganish uchun mo‘ljallangan. "
+            "25 ta asosiy mavzuni qamrab oladi va o‘quvchiga amaliy suhbat ko‘nikmalarini beradi."
+            if lang == "uz" else
+            "📘 本名: 一日一会話 – 日本語を学ぶ\n\nジャンル: 言語学習、実用ガイド\n\n"
+            "この本は、日常生活で使用される日本語の会話を学ぶために作られています。25の主要なテーマをカバーします。"
+        )
+        await message.answer_photo(photo=FSInputFile(BOOK_IMAGE), caption=caption, reply_markup=get_buy_button(lang))
         return
 
-    # Bot haqida
-    if text in ["🤖 Bot haqida","🤖 ボットについて"]:
-        await message.answer("Bot haqida matn shu yerda…")
+    # === Bot haqida ===
+    if text in ["🤖 Bot haqida", "🤖 ボットについて"]:
+        caption = (
+            "🤖 Bu bot 'Bir kunda bir suhbat' kitobiga asoslangan. Audio darslar orqali yapon tilini o‘rganing!"
+            if lang == "uz" else
+            "🤖 このボットは「一日一会話」という本に基づいています。オーディオレッスンで日本語を学びましょう！"
+        )
+        await message.answer_photo(photo=FSInputFile(BOT_IMAGE), caption=caption)
         return
 
-    # Menyu tugmalari
-    if text in ["🏠 Bosh sahifa","🏠 ホーム"]:
+    # === Orqaga va Bosh sahifa ===
+    if text in ["🏠 Bosh sahifa", "🏠 ホーム"]:
         await message.answer("Millatingizni tanlang / 国籍を選んでください:", reply_markup=get_language_keyboard())
-    elif text in ["🔙 Orqaga","🔙 戻る"]:
-        await message.answer("Asosiy menyu:", reply_markup=main_menu_keyboard(lang))
+        return
 
-# Callbacklar
-@dp.callback_query(F.data=="check_subscription")
+    if text in ["🔙 Orqaga", "🔙 戻る"]:
+        await message.answer("Asosiy menyu:" if lang=="uz" else "メインメニュー:", reply_markup=main_menu_keyboard(lang))
+        return
+
+# ======================= Callbacklar =======================
+@dp.callback_query(F.data == "check_subscription")
 async def check_subscription(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     subscribed = await is_user_subscribed(user_id)
@@ -228,7 +249,7 @@ async def check_subscription(callback: types.CallbackQuery):
     else:
         await callback.answer("Siz hali obuna bo‘lmagansiz ❌", show_alert=True)
 
-# MAIN
+# ======================= MAIN =======================
 async def main():
     print("✅ Bot ishga tushdi...")
     await dp.start_polling(bot)
