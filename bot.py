@@ -162,7 +162,7 @@ async def main_menu_handler(message: types.Message):
     if text in ["🎧 Audio darslar", "🎧 オーディオレッスン"]:
         subscribed = await is_user_subscribed(user_id)
         if not subscribed:
-            msg = "📢 Iltimos, avval kanalga va Instagram sahifamizga obuna bo‘ling:" if lang=="uz" else "📢 まずチャンネルとInstagramページに登録してください："
+            msg = "📢 Iltimos, avval kanalga va Instagram sahifamizga obuna bo‘ling:" if lang=="uz" else "📢 まずTelegramチャンネルとInstagramチャンネルに登録してください："
             await message.answer(msg, reply_markup=get_subscription_keyboard(lang))
             return
         user_data[user_id]["last_audio_page"] = 0
@@ -251,7 +251,7 @@ async def check_subscription(callback: types.CallbackQuery):
     lang = user_data.get(str(user_id), {}).get("lang", "uz")
     subscribed = await is_user_subscribed(user_id)
     if subscribed:
-        msg = "✅ Rahmat! Siz kanalga obuna bo‘ldingiz." if lang=="uz" else "✅ 登録ありがとうございます！"
+        msg = "✅ Obuna bo'lganingiz uchun raxmat!" if lang=="uz" else "✅ 登録ありがとうございます！"
         await callback.message.edit_text(msg)
     else:
         alert = "Siz hali Telegram va Instagram kanalga obuna bo‘lmagansiz ❌" if lang=="uz" else "❌ まだチャンネルに登録していません。"
