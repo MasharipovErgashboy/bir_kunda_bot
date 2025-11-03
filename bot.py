@@ -3,10 +3,10 @@ import json
 import asyncio
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, F, types
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.types import FSInputFile, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-# ======================= Routers =======================
+# ✅ Admin routerni import qilamiz
 from admin_handlers import admin_router
 
 # ======================= .env yuklash =======================
@@ -109,7 +109,7 @@ async def start_handler(message: types.Message, command: CommandStart):
     if user_id not in user_data:
         user_data[user_id] = {"lang": "uz", "last_audio_page": 0}
 
-    # QR orqali audio ochish
+    # === QR orqali audio ochish ===
     if "_" in args and "audio" in args:
         try:
             lang, audio_str = args.split("_")
@@ -132,7 +132,7 @@ async def start_handler(message: types.Message, command: CommandStart):
         except Exception as e:
             print("QR audio xatosi:", e)
 
-    # Oddiy start
+    # === Oddiy start ===
     await message.answer(
         "Xush kelibsiz! Millatingizni tanlang / ようこそ！国籍を選んでください:",
         reply_markup=get_language_keyboard()
@@ -163,9 +163,15 @@ async def main_menu_handler(message: types.Message):
     audios = sorted(os.listdir(audio_dir))
     page = user_data[user_id].get("last_audio_page", 0)
 
-    # Audio darslar
+    # === /admin komandasi qo'shildi ===
+    if text == "/admin":
+        await message.answer("✅ Admin panelga xush kelibsiz!")
+        # Shu yerga admin routerning funksiyalari ishlaydi
+        return
+
+    # === Audio darslar ===
     if text in ["🎧 Audio darslar", "🎧 オーディオレッスン"]:
-        subscribed = await is_user_subscribed(int(user_id))
+        subscribed = await is_user_subscribed(user_id)
         if not subscribed:
             msg = "📢 Iltimos, avval kanalga va Instagram sahifamizga obuna bo‘ling:" if lang=="uz" else "📢 まずTelegramチャンネルとInstagramチャンネルに登録してください："
             await message.answer(msg, reply_markup=get_subscription_keyboard(lang))
@@ -178,7 +184,7 @@ async def main_menu_handler(message: types.Message):
         )
         return
 
-    # Sahifalash
+    # === Sahifalash ===
     if text in ["➡️ Keyingi", "➡️ 次へ"]:
         page += 1
         max_page = (len(audios)-1) // PAGE_SIZE
@@ -204,9 +210,9 @@ async def main_menu_handler(message: types.Message):
         )
         return
 
-    # Audio tanlash
+    # === Audio tanlash ===
     if text.strip().split()[0].isdigit() and "-" in text:
-        subscribed = await is_user_subscribed(int(user_id))
+        subscribed = await is_user_subscribed(user_id)
         if not subscribed:
             msg = "📢 Iltimos, avval kanalga va Instagram sahifamizga obuna bo‘ling:" if lang=="uz" else "📢 まずチャンネルとInstagramページに登録してください："
             await message.answer(msg, reply_markup=get_subscription_keyboard(lang))
@@ -217,7 +223,7 @@ async def main_menu_handler(message: types.Message):
             await message.answer_audio(FSInputFile(audio_path), caption=audios[idx])
         return
 
-    # Kitob haqida
+    # === Kitob haqida ===
     if text in ["📚 Kitob haqida", "📚 本について"]:
         caption = (
             "📘 Kitob nomi: Bir kunda bir suhbat – Yapon tilida o‘rganing\n\n"
@@ -230,7 +236,7 @@ async def main_menu_handler(message: types.Message):
         await message.answer_photo(photo=FSInputFile(BOOK_IMAGE), caption=caption, reply_markup=get_buy_button(lang))
         return
 
-    # Bot haqida
+    # === Bot haqida ===
     if text in ["🤖 Bot haqida", "🤖 ボットについて"]:
         caption = (
             "🤖 Bu bot 'Bir kunda bir suhbat' kitobiga asoslangan. Audio darslar orqali yapon tilini o‘rganing!"
@@ -240,12 +246,10 @@ async def main_menu_handler(message: types.Message):
         await message.answer_photo(photo=FSInputFile(BOT_IMAGE), caption=caption)
         return
 
-    # Bosh sahifa
     if text in ["🏠 Bosh sahifa", "🏠 ホーム"]:
         await message.answer("Millatingizni tanlang / 国籍を選んでください:", reply_markup=get_language_keyboard())
         return
 
-    # Orqaga
     if text in ["🔙 Orqaga", "🔙 戻る"]:
         await message.answer("Asosiy menyu:" if lang=="uz" else "メインメニュー:", reply_markup=main_menu_keyboard(lang))
         return
