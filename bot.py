@@ -6,12 +6,17 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart
 from aiogram.types import FSInputFile, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
+# ✅ Admin routerni import qilamiz
+from admin_handlers import admin_router
 
 # ======================= .env yuklash =======================
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
+
+# ✅ Admin routerni Dispatcher ga qo‘shamiz
+dp.include_router(admin_router)
 
 # ======================= Sozlamalar =======================
 CHANNEL_USERNAME = "@su_academya"
