@@ -7,22 +7,35 @@ load_dotenv()
 
 USER_DATA_FILE = "user_data.json"
 
-# Foydalanuvchi ma'lumotlarini yuklash
-def load_user_data():
+# ======================= Foydalanuvchi ma'lumotlarini boshqarish =======================
+def load_user_data() -> dict:
+    """
+    Foydalanuvchi ma'lumotlarini JSON fayldan yuklaydi.
+    Agar fayl mavjud bo'lmasa, bo'sh lug'at qaytaradi.
+    """
     if not os.path.exists(USER_DATA_FILE):
         return {}
     with open(USER_DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+        try:
+            return json.load(f)
+        except json.JSONDecodeError:
+            # Agar fayl bo'sh yoki noto'g'ri JSON bo'lsa
+            return {}
 
-# Foydalanuvchi ma'lumotlarini saqlash
-def save_user_data(data):
+def save_user_data(data: dict) -> None:
+    """
+    Foydalanuvchi ma'lumotlarini JSON faylga saqlaydi.
+    """
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 # ======================= Adminlar =======================
-admin_id = os.getenv("ADMIN1_ID")
-ADMINS = [int(admin_id)] if admin_id else []
-
+# .env fayldan admin IDlarini olish
+admin_id = os.getenv("ADMIN1_ID")  # bitta admin uchun
+ADMINS = [int(admin_id)] if admin_id and admin_id.isdigit() else []
 
 def is_admin(user_id: int) -> bool:
+    """
+    Foydalanuvchi admin ekanligini tekshiradi.
+    """
     return user_id in ADMINS

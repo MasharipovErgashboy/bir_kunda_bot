@@ -1,11 +1,11 @@
 from aiogram import types, Router
-from aiogram.filters import Command
-from utils import is_admin, load_user_data, save_user_data
+from aiogram.filters import Command, Text
+from utils import is_admin, load_user_data
 from keyboards import admin_main_menu, back_button
 
 admin_router = Router()
 
-# /admin komandasi
+# ======================= /admin komandasi =======================
 @admin_router.message(Command(commands=["admin"]))
 async def admin_panel(message: types.Message):
     user_id = message.from_user.id
@@ -14,8 +14,8 @@ async def admin_panel(message: types.Message):
         return
     await message.answer("Admin panelga xush kelibsiz!", reply_markup=admin_main_menu())
 
-# Callbacklar
-@admin_router.callback_query(lambda c: c.data == "admin_users")
+# ======================= Foydalanuvchilar ro'yxati =======================
+@admin_router.callback_query(Text(startswith="admin_users"))
 async def show_users(callback: types.CallbackQuery):
     if not is_admin(callback.from_user.id):
         await callback.answer("❌ Siz admin emassiz!", show_alert=True)
@@ -24,7 +24,8 @@ async def show_users(callback: types.CallbackQuery):
     users_text = "\n".join([f"{i+1}. ID: {uid}" for i, uid in enumerate(user_data.keys())]) or "Foydalanuvchi yo'q"
     await callback.message.edit_text(f"📋 Foydalanuvchilar ro'yxati:\n{users_text}", reply_markup=back_button())
 
-@admin_router.callback_query(lambda c: c.data == "admin_add_audio")
+# ======================= Yangi audio qo'shish =======================
+@admin_router.callback_query(Text(startswith="admin_add_audio"))
 async def add_audio(callback: types.CallbackQuery):
     if not is_admin(callback.from_user.id):
         await callback.answer("❌ Siz admin emassiz!", show_alert=True)
@@ -34,7 +35,8 @@ async def add_audio(callback: types.CallbackQuery):
         reply_markup=back_button()
     )
 
-@admin_router.callback_query(lambda c: c.data == "admin_stats")
+# ======================= Bot statistika =======================
+@admin_router.callback_query(Text(startswith="admin_stats"))
 async def show_stats(callback: types.CallbackQuery):
     if not is_admin(callback.from_user.id):
         await callback.answer("❌ Siz admin emassiz!", show_alert=True)
@@ -43,6 +45,7 @@ async def show_stats(callback: types.CallbackQuery):
     total_users = len(user_data)
     await callback.message.edit_text(f"📈 Bot statistika:\nFoydalanuvchilar soni: {total_users}", reply_markup=back_button())
 
-@admin_router.callback_query(lambda c: c.data == "admin_back")
+# ======================= Admin panelga qaytish =======================
+@admin_router.callback_query(Text(startswith="admin_back"))
 async def go_back(callback: types.CallbackQuery):
     await callback.message.edit_text("Admin panelga xush kelibsiz!", reply_markup=admin_main_menu())
