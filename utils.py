@@ -20,9 +20,9 @@ def save_user_data(data):
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 # ======================= Adminlar =======================
-ADMINS = [
-    int(os.getenv("ADMIN1_ID")),
-]
+admin_id = os.getenv("ADMIN1_ID")
+ADMINS = [int(admin_id)] if admin_id else []
+
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMINS
