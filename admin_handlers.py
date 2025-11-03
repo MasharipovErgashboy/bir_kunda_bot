@@ -1,5 +1,5 @@
 from aiogram import types, Router
-from aiogram.filters import Command, Text
+from aiogram.filters import Command
 from utils import is_admin, load_user_data
 from keyboards import admin_main_menu, back_button
 
